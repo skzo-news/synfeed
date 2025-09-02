@@ -1,0 +1,28 @@
+name: Build & Release Installers
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*.*.*']
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci
+      - run: npm run build:web
+      - name: Build app with electron-builder
+        run: npx electron-builder --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: synfeed-${{ matrix.os }}
+          path: |
+            dist/*
+            release/*
