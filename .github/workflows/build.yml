@@ -1,13 +1,21 @@
 name: Build (Vite)
+
 on: [push, pull_request]
+
+permissions:
+  contents: write
+  packages: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # required by electron-builder
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      - run: npm ci
-      - run: npm run build
+      - run: npm ci || npm install
+      - run: npm run build   # if this runs electron-builder, it will now have GH_TOKEN
