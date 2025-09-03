@@ -2,3 +2,8 @@ node_modules/
 dist/
 *.exe
 *.asar
+release/
+*.blockmap
+latest.yml
+builder-debug.yml
+
