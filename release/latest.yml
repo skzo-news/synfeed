@@ -1,0 +1,8 @@
+version: 1.0.1
+files:
+  - url: SynFeed-1.0.1-win-x64.exe
+    sha512: 6lOIuZc7whZZxZUTUrpye8F0jy2TX3U8wJKeGcRTaNWqx09vnyuHAQLGhRzQjnsjhQUc2ApWbe/yBe1HCU9Jaw==
+    size: 79245312
+path: SynFeed-1.0.1-win-x64.exe
+sha512: 6lOIuZc7whZZxZUTUrpye8F0jy2TX3U8wJKeGcRTaNWqx09vnyuHAQLGhRzQjnsjhQUc2ApWbe/yBe1HCU9Jaw==
+releaseDate: '2025-09-02T22:19:49.599Z'

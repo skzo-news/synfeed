@@ -15,16 +15,19 @@
     "start": "electron ."
   },
   "dependencies": {
+    "axios": "^1.7.7",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "axios": "^1.7.7"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.21",
     "concurrently": "^9.0.1",
     "cross-env": "^7.0.3",
     "electron": "^31.7.7",
     "electron-builder": "^24.13.3",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.12",
     "vite": "^5.4.8",
     "wait-on": "^7.2.0"
   },
@@ -48,7 +51,9 @@
     },
     "asar": true,
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "artifactName": "SynFeed-${version}-win-${arch}.${ext}",
       "icon": "build/icon.ico"
     },

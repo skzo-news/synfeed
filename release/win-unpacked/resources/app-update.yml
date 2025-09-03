@@ -1,0 +1,4 @@
+owner: skzo-news
+repo: synfeed
+provider: github
+updaterCacheDirName: synfeed-updater
