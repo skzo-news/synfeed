@@ -1,3 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Tailwind v4 custom tokens */
+@theme {
+  /* R G B values (no commas) so /opacity works, e.g. bg-cyber-panel/80 */
+  --color-cyber-panel: 12 16 24;
+  --color-cyber-mint: 160 255 220;  /* if you want a mint token later */
+  --color-cyber-red: 235 0 40;      /* matches the icon red */
+}
