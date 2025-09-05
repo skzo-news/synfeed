@@ -1,28 +1,32 @@
-name: Build & Release Installers
+name: Build & Publish Windows
+
 on:
-  workflow_dispatch:
   push:
-    tags: ['v*.*.*']
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+  windows:
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # used by electron-builder
+      NODE_OPTIONS: --max_old_space_size=4096
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - run: npm ci
-      - run: npm run build:web
-      - name: Build app with electron-builder
-        run: npx electron-builder --publish always
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      - name: Upload artifacts
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci || npm install
+      - name: Build & Publish to GitHub Releases
+        run: npm run build:win:publish
+      - name: Upload built files (artifact copy)
         uses: actions/upload-artifact@v4
         with:
-          name: synfeed-${{ matrix.os }}
-          path: |
-            dist/*
-            release/*
+          name: SynFeed-windows
+          path: release/**
+          if-no-files-found: warn

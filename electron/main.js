@@ -1,109 +1,89 @@
-import { app, BrowserWindow, ipcMain, shell, session, dialog } from 'electron'
-import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
-import Parser from 'rss-parser'
-import { autoUpdater } from 'electron-updater'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-
-let win
+// electron/main.js
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const path = require('path');
+const log = require('electron-log').default;
+const { autoUpdater } = require('electron-updater');
 
 function createWindow() {
-  win = new BrowserWindow({
+  const win = new BrowserWindow({
     width: 1200,
     height: 800,
-    backgroundColor: '#0b0f14',
-    titleBarStyle: 'hiddenInset',
-    icon: join(__dirname, '../buildResources/icon.png'),
+    minWidth: 1000,
+    minHeight: 700,
+    backgroundColor: '#0b0e13',
+    icon: path.join(__dirname, '..', 'build', 'icon.ico'),
     webPreferences: {
-      preload: join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      webviewTag: true
-    }
-  })
+    },
+  });
 
-  const isDev = !app.isPackaged
-  if (isDev) {
-    win.loadURL('http://localhost:5173')
-    win.webContents.openDevTools({ mode: 'detach' })
+  const devUrl = process.env.VITE_DEV_SERVER_URL;
+  if (!app.isPackaged && devUrl) {
+    win.loadURL(devUrl);            // dev (Vite server)
+    // win.webContents.openDevTools();
   } else {
-    win.loadFile(join(__dirname, '../dist/index.html'))
+    win.loadFile(path.join(__dirname, '..', 'dist', 'index.html')); // prod
   }
-
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
-    return { action: 'deny' }
-  })
 }
 
-function initAutoUpdate() {
-  autoUpdater.autoDownload = true
-  autoUpdater.on('update-available', () => {
-    if (win) win.webContents.send('update-status', 'Update available, downloading…')
-  })
-  autoUpdater.on('update-downloaded', () => {
-    if (!win) return
-    const choice = dialog.showMessageBoxSync(win, {
-      type: 'question',
-      buttons: ['Install and Relaunch', 'Later'],
-      defaultId: 0,
-      message: 'A new version of SynFeed has been downloaded. Install now?'
-    })
-    if (choice === 0) autoUpdater.quitAndInstall()
-  })
-  autoUpdater.on('error', (e) => {
-    if (win) win.webContents.send('update-status', `Updater error: ${e?.message || e}`)
-  })
-  autoUpdater.checkForUpdatesAndNotify()
+/* ---------------- Updater wiring ---------------- */
+function sendAll(channel, payload) {
+  for (const w of BrowserWindow.getAllWindows()) {
+    w.webContents.send(channel, payload);
+  }
 }
 
-app.whenReady().then(async () => {
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    const csp = "default-src 'self' 'unsafe-inline' data: blob: filesystem: http: https:; media-src * blob: data:; img-src * data:; frame-src https: http:;"
-    callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [csp] } })
-  })
-  createWindow()
-  initAutoUpdate()
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
-})
+function setupAutoUpdater() {
+  autoUpdater.logger = log;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
-})
+  // Events -> renderer (for status banner)
+  autoUpdater.on('checking-for-update', () => sendAll('updater:status', { state: 'checking' }));
+  autoUpdater.on('update-available', info => sendAll('updater:status', { state: 'available', info }));
+  autoUpdater.on('update-not-available', () => sendAll('updater:status', { state: 'idle' }));
+  autoUpdater.on('download-progress', p => sendAll('updater:progress', p));
+  autoUpdater.on('update-downloaded', info => {
+    sendAll('updater:status', { state: 'downloaded', info });
+    // Install as soon as we can
+    setTimeout(() => autoUpdater.quitAndInstall(), 800);
+  });
+  autoUpdater.on('error', err => sendAll('updater:status', { state: 'error', message: String(err?.message || err) }));
 
-ipcMain.handle('fetch-feeds', async (_evt, sources) => {
-  const parser = new Parser()
-  const results = []
-  for (const src of sources) {
+  // Manual trigger from renderer
+  ipcMain.handle('updater:check', async () => {
     try {
-      const feed = await parser.parseURL(src.url)
-      for (const item of feed.items.slice(0, 20)) {
-        results.push({
-          source: src.name,
-          category: src.category,
-          title: item.title || '',
-          link: item.link || '',
-          isoDate: item.isoDate || item.pubDate || '',
-          contentSnippet: item.contentSnippet || '',
-          content: item['content:encoded'] || item.content || '',
-        })
-      }
+      await autoUpdater.checkForUpdates();
+      return { ok: true };
     } catch (e) {
-      results.push({
-        source: src.name,
-        category: src.category,
-        title: `⚠️ Failed to read feed: ${src.url}`,
-        link: '',
-        isoDate: new Date().toISOString(),
-        contentSnippet: String(e?.message || e),
-        content: ''
-      })
+      log.error(e);
+      return { ok: false, error: String(e?.message || e) };
     }
-  }
-  results.sort((a, b) => new Date(b.isoDate) - new Date(a.isoDate))
-  return results
-})
+  });
+
+  // Kick off a check shortly after app starts
+  setTimeout(() => autoUpdater.checkForUpdatesAndNotify(), 3000);
+}
+
+/* ---------------- Secure IPC for feeds ---------------- */
+ipcMain.handle('feeds:fetch', async (_evt, url) => {
+  const res = await fetch(url, {
+    headers: {
+      'user-agent': 'SynFeed/1.0 (+desktop)',
+      'accept': 'application/rss+xml, application/xml, text/xml, */*'
+    }
+  });
+  const text = await res.text();
+  return { ok: res.ok, status: res.status, text };
+});
+
+ipcMain.handle('shell:openExternal', (_evt, url) => shell.openExternal(url));
+
+/* ---------------- App lifecycle ---------------- */
+app.whenReady().then(() => {
+  createWindow();
+  setupAutoUpdater();
+});
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit();

@@ -1,5 +1,13 @@
-import { contextBridge, ipcRenderer } from 'electron'
+// electron/preload.js
+const { contextBridge, ipcRenderer } = require('electron');
+
 contextBridge.exposeInMainWorld('api', {
-  fetchFeeds: (sources) => ipcRenderer.invoke('fetch-feeds', sources),
-  onUpdateStatus: (cb) => ipcRenderer.on('update-status', (_e, msg) => cb(msg))
-})
+  fetchFeed: (url) => ipcRenderer.invoke('feeds:fetch', url),
+  openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+});
+
+contextBridge.exposeInMainWorld('updater', {
+  check: () => ipcRenderer.invoke('updater:check'),
+  onStatus: (fn) => ipcRenderer.on('updater:status', (_e, data) => fn(data)),
+  onProgress: (fn) => ipcRenderer.on('updater:progress', (_e, data) => fn(data)),
+});

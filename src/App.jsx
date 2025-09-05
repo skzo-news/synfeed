@@ -1,55 +1,123 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import TabBar from './components/TabBar.jsx'
-import FeedList from './components/FeedList.jsx'
-import VideoPane from './components/VideoPane.jsx'
-import { SOURCES } from './lib/sources.js'
+// src/App.jsx
+import React, { useEffect, useMemo, useState } from 'react';
+import { FEEDS } from './feeds';
+import { fetchAndParse, toYouTubeEmbed } from './api';
+import { Globe, Cpu, Shield, PlayCircle } from 'lucide-react';
+import UpdateBanner from './UpdateBanner';
+
+const CATS = ['All', 'AI', 'Tech', 'Security', 'Video'];
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState('All')
-  const [feedItems, setFeedItems] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [videoUrl, setVideoUrl] = useState('')
-  const [updateMsg, setUpdateMsg] = useState('')
+  const [cat, setCat] = useState('All');
+  const [items, setItems] = useState([]);
+  const [sel, setSel] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const feedList = FEEDS[cat];
+
   useEffect(() => {
-    async function go() {
-      setLoading(true)
+    (async () => {
+      setLoading(true);
       try {
-        const items = await window.api.fetchFeeds(SOURCES)
-        setFeedItems(items)
-        window.api.onUpdateStatus((msg) => setUpdateMsg(msg))
+        const results = await Promise.all(feedList.map(f => fetchAndParse(f.url, cat)));
+        const flat = results.flat();
+        flat.sort((a,b) => new Date(b.pubDate) - new Date(a.pubDate));
+        setItems(flat);
+        setSel(null);
+      } catch (e) {
+        console.error(e);
+        setItems([]);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    go()
-  }, [])
-  const filtered = useMemo(() => {
-    if (activeTab === 'All') return feedItems
-    return feedItems.filter(i => i.category === activeTab || i.source.toLowerCase().includes(activeTab.toLowerCase()))
-  }, [activeTab, feedItems])
+    })();
+  }, [cat]); // eslint-disable-line
+
+  const embed = useMemo(() => sel ? toYouTubeEmbed(sel.link) : null, [sel]);
+
   return (
-    <div className="h-screen w-screen p-3 scanline relative">
-      <header className="flex items-center justify-between mb-3">
-        <div className="font-mono text-lg">
-          <span className="noir-glow glitch" data-text="SynFeed">SynFeed</span>
-          <span className="text-cyber-text/50 ml-2 text-sm">— Tech • AI • Security</span>
-        </div>
-        <div className="text-xs text-cyber-text/60 font-mono">{updateMsg || 'Bias-aware • Local parsing • Auto-update enabled'}</div>
-      </header>
-      <div className="grid grid-cols-12 gap-3 h-[calc(100vh-70px)]">
-        <div className="col-span-8 flex flex-col">
-          <TabBar active={activeTab} onChange={setActiveTab} />
-          <div className="mt-3 overflow-auto pr-1">
-            {loading ? (
-              <div className="p-6 text-cyber-text/60 font-mono">Fetching feeds…</div>
-            ) : (
-              <FeedList items={filtered} onPickVideo={setVideoUrl} />
-            )}
+    <div className="h-full grid grid-cols-[380px_1fr]">
+      {/* Left column: nav + list */}
+      <div className="h-full border-r border-slate-700/50 overflow-hidden">
+        <header className="p-3 border-b border-slate-700/50 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-cyan-300">SynFeed</h1>
+            <p className="text-xs text-slate-400">Bias-aware • Local parsing</p>
           </div>
-        </div>
-        <div className="col-span-4">
-          <VideoPane url={videoUrl} />
-        </div>
+          <UpdateBanner />
+        </header>
+
+        <nav className="p-2 flex gap-2 flex-wrap">
+          <Tab active={cat==='All'} onClick={()=>setCat('All')} label="All" Icon={Globe}/>
+          <Tab active={cat==='AI'} onClick={()=>setCat('AI')} label="AI" Icon={Cpu}/>
+          <Tab active={cat==='Tech'} onClick={()=>setCat('Tech')} label="Tech" Icon={Globe}/>
+          <Tab active={cat==='Security'} onClick={()=>setCat('Security')} label="Security" Icon={Shield}/>
+          <Tab active={cat==='Video'} onClick={()=>setCat('Video')} label="Video" Icon={PlayCircle}/>
+        </nav>
+
+        <section className="h-[calc(100%-110px)] overflow-auto">
+          {loading && <div className="p-4 text-slate-400">Loading {cat}…</div>}
+          {!loading && items.length === 0 && (
+            <div className="p-4 text-slate-400">No items yet.</div>
+          )}
+          <ul className="divide-y divide-slate-800">
+            {items.map((it, i) => (
+              <li key={i} className="p-3 hover:bg-slate-800/50 cursor-pointer" onClick={()=>setSel(it)}>
+                <div className="text-sm text-slate-400">{it.source}</div>
+                <div className="font-medium text-slate-100">{it.title}</div>
+                <div className="text-xs text-slate-500">{new Date(it.pubDate || Date.now()).toLocaleString()}</div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+
+      {/* Right column: viewer */}
+      <div className="h-full p-4">
+        {!sel && (
+          <div className="h-full grid place-items-center text-slate-400">
+            Select an item from the feed to view it here.
+          </div>
+        )}
+
+        {sel && embed && (
+          <div className="h-full">
+            <h2 className="text-lg font-semibold mb-2">{sel.title}</h2>
+            <iframe
+              className="w-full h-[80vh] rounded-lg border border-slate-700"
+              src={embed}
+              title={sel.title}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          </div>
+        )}
+
+        {sel && !embed && (
+          <div className="h-full">
+            <h2 className="text-lg font-semibold">{sel.title}</h2>
+            <p className="text-sm text-slate-400 mb-4">{sel.source}</p>
+            <button
+              className="px-3 py-2 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700"
+              onClick={()=>window.api.openExternal(sel.link)}
+            >
+              Open article in browser
+            </button>
+          </div>
+        )}
       </div>
     </div>
-  )
+  );
+}
+
+function Tab({ active, onClick, label, Icon }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded border text-sm flex items-center gap-2
+        ${active ? 'bg-slate-800 border-slate-600 text-slate-100' : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'}`}
+    >
+      <Icon size={16}/>
+      {label}
+    </button>
+  );
 }
