@@ -1,19 +1,31 @@
-import React from 'react'
-import ReactPlayer from 'react-player'
-export default function VideoPane({ url }) {
-  if (!url) {
+// src/components/VideoPane.jsx
+import React from 'react';
+import { toYouTubeEmbed } from '../api';
+
+export default function VideoPane({ link, title }) {
+  const embed = toYouTubeEmbed(link);
+
+  if (embed) {
     return (
-      <div className="h-full w-full flex items-center justify-center text-cyber-text/60 font-mono">
-        Select a video from the feed to play here.
-      </div>
-    )
+      <iframe
+        className="w-full h-[80vh] rounded-lg border border-slate-700"
+        src={embed}
+        title={title || 'Video'}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+      />
+    );
   }
+
   return (
-    <div className="h-full w-full noir-card p-3">
-      <div className="rounded-xl overflow-hidden aspect-video">
-        <ReactPlayer url={url} width="100%" height="100%" controls playing={false} />
-      </div>
-      <div className="text-xs text-cyber-text/70 font-mono mt-2 break-all">{url}</div>
+    <div className="p-4 text-slate-300">
+      <p>This video can’t be embedded.</p>
+      <button
+        className="mt-3 px-3 py-2 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700"
+        onClick={() => window.api.openExternal(link)}
+      >
+        Open on YouTube
+      </button>
     </div>
-  )
+  );
 }

@@ -2,10 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Tailwind v4 custom tokens */
-@theme {
-  /* R G B values (no commas) so /opacity works, e.g. bg-cyber-panel/80 */
-  --color-cyber-panel: 12 16 24;
-  --color-cyber-mint: 160 255 220;  /* if you want a mint token later */
-  --color-cyber-red: 235 0 40;      /* matches the icon red */
+/* Noir palette via CSS variables, no @apply used */
+:root {
+  --cyber-panel: 12 16 24;
+  --cyber-mint: 160 255 220;
+  --cyber-red: 235 0 40;
 }
+
+html, body, #root { height: 100%; }
+body {
+  background-color: rgb(var(--cyber-panel));
+  color: rgb(226 232 240);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+a { color: rgb(103 232 249); }
+a:hover { color: rgb(165 243 252); }
+
+/* Custom utilities */
+.bg-cyber-panel { background-color: rgb(var(--cyber-panel)); }
+.text-cyber-mint { color: rgb(var(--cyber-mint)); }
+.border-cyber-red { border-color: rgb(var(--cyber-red)); }
+
+/* opacity variants (escaped slash in class name) */
+.bg-cyber-panel\/90 { background-color: rgba(12,16,24,0.90); }
+.bg-cyber-panel\/80 { background-color: rgba(12,16,24,0.80); }
+.bg-cyber-panel\/70 { background-color: rgba(12,16,24,0.70); }
+.bg-cyber-panel\/60 { background-color: rgba(12,16,24,0.60); }
